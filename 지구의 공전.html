@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>지구 공전과 계절별 별자리 (교실 모형)</title>
+    <style>
+        /* 기본 페이지 레이아웃 */
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f4f8; /* 밝은 교실 느낌의 배경 */
+            color: #333;
+            font-family: 'Malgun Gothic', dotum, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            background-color: #fff;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 1px solid #ddd;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 28px;
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 15px;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+
+        /* 2단 그리드 레이아웃 */
+        .sim-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .sim-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .sim-box {
+            background-color: #fafafa;
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            height: 400px;
+            overflow: hidden;
+        }
+
+        .sim-label {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background-color: #3498db;
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 13px;
+            z-index: 20;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* --- [좌측] 교실 관점 그래픽 요소 --- */
+        .classroom-canvas {
+            width: 100%;
+            height: 320px;
+            position: relative;
+            margin-top: 30px;
+            background-color: #fff;
+            border: 2px dashed #bdc3c7;
+            border-radius: 8px;
+        }
+
+        /* 교실 테두리 방위 표시 */
+        .wall-label {
+            position: absolute;
+            font-weight: bold;
+            font-size: 14px;
+            color: #555;
+            background-color: #eee;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        .wall-north { top: 5px; left: 50%; transform: translateX(-50%); }
+        .wall-south { bottom: 5px; left: 50%; transform: translateX(-50%); }
+        .wall-east { top: 50%; right: 5px; transform: translateY(-50%); writing-mode: vertical-lr; }
+        .wall-west { top: 50%; left: 5px; transform: translateY(-50%); writing-mode: vertical-lr; }
+
+        /* 중심 태양(전구) */
+        .sun-bulb {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle, #fff 0%, #ffeb3b 50%, #f39c12 100%);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 20px #ffeb3b, 0 0 40px rgba(243, 156, 18, 0.5);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        /* 공전 궤도 */
+        .orbit-path {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 180px;
+            height: 180px;
+            border: 1px dashed #aaa;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1;
+        }
+
+        /* 공전하는 회전 컨테이너 */
+        .orbit-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 180px;
+            height: 180px;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            /* 초기화 시 역재생 애니메이션을 방지하기 위한 트랜지션 */
+            transition: transform 0s;
+        }
+
+        /* 지구본 (항상 궤도 위쪽에 고정되어 컨테이너와 함께 회전) */
+        .earth-globe {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            width: 30px;
+            height: 30px;
+            background: radial-gradient(circle, #3498db, #2980b9);
+            border-radius: 50%;
+            transform: translateX(-50%);
+            border: 2px solid #2ecc71;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* 카메라 (지구에 부착, 태양 반대편인 위쪽을 향함) */
+        .camera {
+            position: absolute;
+            top: -25px; /* 지구보다 더 바깥쪽 */
+            width: 24px;
+            height: 24px;
+            background-color: #333;
+            border-radius: 4px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 2px;
+            box-sizing: border-box;
+            color: white;
+            font-size: 10px;
+        }
+        /* 카메라 렌즈 */
+        .camera::after {
+            content: '';
+            position: absolute;
+            top: -6px;
+            width: 10px;
+            height: 6px;
+            background-color: #555;
+            border-radius: 2px 2px 0 0;
+        }
+
+        /* --- [우측] 카메라 관점 그래픽 요소 --- */
+        .camera-canvas {
+            width: 100%;
+            height: 280px;
+            margin-top: 40px;
+            border: 8px solid #2c3e50; /* 카메라 뷰파인더 느낌 */
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        /* 뷰파인더 십자선 */
+        .viewfinder {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 20;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px);
+            background-size: 100% 50%, 50% 100%;
+            background-position: center center;
+            background-repeat: no-repeat;
+        }
+        .viewfinder::after {
+            content: 'REC 🔴';
+            position: absolute;
+            top: 10px; right: 10px;
+            color: red;
+            font-weight: bold;
+            font-size: 14px;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* 파노라마 배경 스트립 (5개의 면을 연결하여 자연스럽게 회전) */
+        .panorama-strip {
+            display: flex;
+            width: 500%; /* 5개의 섹션 (북-서-남-동-북) */
+            height: 100%;
+            transition: transform 0s;
+        }
+
+        /* 각 벽면(별자리) 스타일 */
+        .wall-section {
+            width: 20%; /* 부모의 1/5 */
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            position: relative;
+        }
+
+        .bg-north { background-color: #27ae60; } /* 칠판 색 */
+        .bg-west { background-color: #8e44ad; } /* 창문과 문 색 */
+        .bg-south { background-color: #d35400; } /* 게시판 색 */
+        .bg-east { background-color: #2980b9; } /* 창문 색 */
+
+        .wall-title {
+            font-size: 28px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            margin-bottom: 10px;
+            z-index: 2;
+        }
+        
+        .wall-desc {
+            font-size: 16px;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+            z-index: 2;
+        }
+
+        /* 각 벽면 데코레이션 */
+        .deco-board { width: 60%; height: 50%; border: 4px solid #fff; position: absolute; opacity: 0.3; }
+        .deco-window { width: 30%; height: 60%; border: 4px solid #fff; position: absolute; opacity: 0.3; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 4px; }
+        .deco-door { width: 25%; height: 70%; border: 4px solid #fff; position: absolute; left: 15%; bottom: 10%; opacity: 0.3; }
+
+        /* --- 하단 컨트롤러 영역 --- */
+        .controls {
+            background-color: #fafafa;
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 90%;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .slider-title {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 18px;
+            margin: 0;
+        }
+
+        .reset-btn {
+            position: absolute;
+            right: 0;
+            background-color: #fff;
+            color: #333;
+            border: 1px solid #aaa;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .reset-btn:hover {
+            background-color: #3498db;
+            color: #fff;
+            border-color: #3498db;
+        }
+
+        input[type=range] {
+            width: 90%;
+            height: 10px;
+            background: #dcdde1;
+            border-radius: 5px;
+            outline: none;
+            -webkit-appearance: none;
+            accent-color: #3498db;
+            cursor: pointer;
+        }
+
+        .time-labels {
+            display: flex;
+            justify-content: space-between;
+            width: 90%;
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .status-box {
+            margin-top: 25px;
+            width: 90%;
+            background-color: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🌍 지구 공전과 밤하늘의 변화 📷</h1>
+    <div class="subtitle">지구가 태양(전구)을 중심으로 공전할 때, 한밤중(카메라 방향)에 보이는 교실 벽면(별자리)이 어떻게 달라지는지 확인해 보세요.</div>
+
+    <div class="sim-grid">
+        <div class="sim-box">
+            <div class="sim-label">교실 위에서 내려다본 모습 (공전 궤도)</div>
+            <div class="classroom-canvas">
+                <div class="wall-label wall-north">북 - 칠판</div>
+                <div class="wall-label wall-south">남 - 게시판</div>
+                <div class="wall-label wall-east">동 - 창문</div>
+                <div class="wall-label wall-west">서 - 창문과 문</div>
+
+                <div class="orbit-path"></div>
+                <div class="sun-bulb">💡</div>
+
+                <div class="orbit-container" id="orbitContainer">
+                    <div class="earth-globe">
+                        <div class="camera">📷</div>
+                    </div>
+                </div>
+            </div>
+            <div style="font-size: 13px; color: #7f8c8d; text-align: center; margin-top: 10px;">
+                지구가 태양을 중심으로 <span style="color:#2980b9; font-weight:bold;">반시계 방향</span>으로 돕니다.<br>카메라는 항상 태양의 반대편(한밤중의 하늘)을 찍고 있습니다.
+            </div>
+        </div>
+
+        <div class="sim-box">
+            <div class="sim-label">카메라에 찍히는 풍경 (한밤중의 별자리)</div>
+            <div class="camera-canvas">
+                <div class="viewfinder"></div>
+                <div class="panorama-strip" id="panoramaStrip">
+                    <div class="wall-section bg-north">
+                        <div class="deco-board"></div>
+                        <div class="wall-title">북쪽 벽면 (칠판)</div>
+                        <div class="wall-desc">ex) 봄철의 밤하늘</div>
+                    </div>
+                    <div class="wall-section bg-west">
+                        <div class="deco-door"></div>
+                        <div class="deco-window" style="left: 50%;">
+                            <div style="border: 1px solid #fff;"></div><div style="border: 1px solid #fff;"></div>
+                            <div style="border: 1px solid #fff;"></div><div style="border: 1px solid #fff;"></div>
+                        </div>
+                        <div class="wall-title">서쪽 벽면 (창문과 문)</div>
+                        <div class="wall-desc">ex) 여름철의 밤하늘</div>
+                    </div>
+                    <div class="wall-section bg-south">
+                        <div class="deco-board" style="border-style: dashed;"></div>
+                        <div class="wall-title">남쪽 벽면 (게시판)</div>
+                        <div class="wall-desc">ex) 가을철의 밤하늘</div>
+                    </div>
+                    <div class="wall-section bg-east">
+                        <div class="deco-window" style="width: 60%;">
+                            <div style="border: 1px solid #fff;"></div><div style="border: 1px solid #fff;"></div>
+                            <div style="border: 1px solid #fff;"></div><div style="border: 1px solid #fff;"></div>
+                        </div>
+                        <div class="wall-title">동쪽 벽면 (창문)</div>
+                        <div class="wall-desc">ex) 겨울철의 밤하늘</div>
+                    </div>
+                    <div class="wall-section bg-north">
+                        <div class="deco-board"></div>
+                        <div class="wall-title">북쪽 벽면 (칠판)</div>
+                        <div class="wall-desc">다시 봄이 되었습니다!</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="font-size: 13px; color: #7f8c8d; text-align: center; margin-top: 15px;">
+                지구가 1년 동안 공전함에 따라, 한밤중에 남쪽 하늘을 볼 때<br>보이는 벽면(계절별 대표 별자리)이 계속 달라집니다.
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="slider-header">
+            <div class="slider-title">🗓 시간 경과 슬라이더 (1년 공전 궤도)</div>
+            <button class="reset-btn" onclick="resetSimulation()">🔄 처음으로</button>
+        </div>
+        
+        <input type="range" id="orbitSlider" min="0" max="100" value="0">
+        <div class="time-labels">
+            <span>위치 1 (북쪽 봄)</span>
+            <span>위치 2 (서쪽 봄)</span>
+            <span>위치 3 (남쪽 봄)</span>
+            <span>위치 4 (동쪽 봄)</span>
+            <span>위치 1 (다시 제자리)</span>
+        </div>
+        
+        <div class="status-box" id="statusMessage">
+            [위치 1] 지구가 북쪽을 향하고 있어 카메라에는 칠판이 보입니다.
+        </div>
+    </div>
+</div>
+
+<script>
+    const slider = document.getElementById('orbitSlider');
+    const orbitContainer = document.getElementById('orbitContainer');
+    const panoramaStrip = document.getElementById('panoramaStrip');
+    const statusMsg = document.getElementById('statusMessage');
+
+    function updateSimulation() {
+        const val = parseInt(slider.value);
+
+        // 1. 공전 로직: 0~100의 값을 0~-360도(반시계 방향)로 변환
+        const angle = (val / 100) * -360;
+        orbitContainer.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+
+        // 2. 파노라마 카메라 로직
+        // 컨테이너가 500% 너비이므로, 0% ~ -80% 구간을 이동하면 1번~5번 패널이 순서대로 보임
+        const translatePercent = (val / 100) * -80;
+        panoramaStrip.style.transform = `translateX(${translatePercent}%)`;
+
+        // 3. 상태 메시지 업데이트
+        if (val < 15 || val > 85) {
+            statusMsg.innerText = "[위치 1] 카메라가 태양 반대편인 북쪽을 향해 칠판이 보입니다.";
+            statusMsg.style.borderColor = "#27ae60";
+            statusMsg.style.color = "#27ae60";
+            statusMsg.style.backgroundColor = "rgba(39, 174, 96, 0.1)";
+        } else if (val >= 15 && val < 35) {
+            statusMsg.innerText = "지구가 이동하며 카메라의 시야가 서쪽 벽면으로 서서히 이동합니다.";
+            statusMsg.style.borderColor = "#95a5a6";
+            statusMsg.style.color = "#7f8c8d";
+            statusMsg.style.backgroundColor = "#f4f6f7";
+        } else if (val >= 35 && val < 40) { // 25 근처
+            statusMsg.innerText = "[위치 2] 카메라가 서쪽을 향해 창문과 문이 보입니다.";
+            statusMsg.style.borderColor = "#8e44ad";
+            statusMsg.style.color = "#8e44ad";
+            statusMsg.style.backgroundColor = "rgba(142, 68, 173, 0.1)";
+        } else if (val >= 40 && val <= 60) { // 50 근처
+            statusMsg.innerText = "[위치 3] 카메라가 남쪽을 향해 게시판이 보입니다.";
+            statusMsg.style.borderColor = "#d35400";
+            statusMsg.style.color = "#d35400";
+            statusMsg.style.backgroundColor = "rgba(211, 84, 0, 0.1)";
+        } else if (val > 60 && val <= 85) { // 75 근처
+            statusMsg.innerText = "[위치 4] 카메라가 동쪽을 향해 넓은 창문이 보입니다.";
+            statusMsg.style.borderColor = "#2980b9";
+            statusMsg.style.color = "#2980b9";
+            statusMsg.style.backgroundColor = "rgba(41, 128, 185, 0.1)";
+        }
+    }
+
+    // 🌟 초기화(리셋) 함수
+    function resetSimulation() {
+        slider.value = 0;
+        updateSimulation();
+    }
+
+    slider.addEventListener('input', updateSimulation);
+    updateSimulation(); // 초기 상태 반영
+</script>
+
+</body>
+</html>
