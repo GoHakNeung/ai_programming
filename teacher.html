@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>교사용 제출 결과 다운로드 대시보드</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 40px 20px;
+      background-color: #f8fafc;
+      color: #334155;
+    }
+    .card {
+      max-width: 650px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 32px;
+      border-radius: 14px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+      border: 1px solid #e2e8f0;
+    }
+    h2 {
+      margin-top: 0;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    p {
+      color: #64748b;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .auth-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      font-size: 0.95rem;
+    }
+    .btn {
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .btn-login { background-color: #1a73e8; color: white; }
+    .btn-login:hover { background-color: #1558b0; }
+    .btn-logout { background-color: #e2e8f0; color: #334155; }
+    .btn-logout:hover { background-color: #cbd5e1; }
+    .btn-download {
+      background-color: #059669; /* 엑셀 그린 */
+      color: white;
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background-color 0.2s;
+    }
+    .btn-download:hover {
+      background-color: #047857;
+    }
+    .btn-download:disabled {
+      background-color: #94a3b8;
+      cursor: not-allowed;
+    }
+    [hidden] { display: none !important; }
+    #statusMsg {
+      margin-top: 18px;
+      font-size: 0.95rem;
+      color: #2563eb;
+      font-weight: 500;
+    }
+    #statusMsg.error { color: #dc2626; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>📊 형성평가 제출 결과 다운로드</h2>
+    <p>
+      학생들이 제출한 답안(Map 구조: q1, q2, q3 등)을 개별 열로 자동 파싱하여 엑셀(CSV) 파일로 변환합니다.<br>
+      허용된 교사 Google 계정으로 로그인해야 다운로드할 수 있습니다.
+    </p>
+
+    <div class="auth-bar">
+      <span id="userInfo">로그인되지 않음</span>
+      <div>
+        <button type="button" id="loginBtn" class="btn btn-login">Google 계정으로 로그인</button>
+        <button type="button" id="logoutBtn" class="btn btn-logout" hidden>로그아웃</button>
+      </div>
+    </div>
+
+    <button type="button" id="downloadBtn" class="btn-download" hidden>📥 엑셀(CSV) 다운로드</button>
+    <div id="statusMsg"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+    // 1. 파이어베이스 설정값
+    const firebaseConfig = {
+      apiKey: "AIzaSyATGy-uppBZmGYbL-wktdqRHeXJ1ee-iLU",
+      authDomain: "worksheet-9e6bd.firebaseapp.com",
+      projectId: "worksheet-9e6bd",
+      storageBucket: "worksheet-9e6bd.firebasestorage.app",
+      messagingSenderId: "206792985103",
+      appId: "1:206792985103:web:665d31da7bbc769ccbb17a",
+      measurementId: "G-JG8X4CERWN"
+    };
+
+    // 2. 초기화
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const userInfo = document.getElementById("userInfo");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const statusMsg = document.getElementById("statusMsg");
+
+    function setStatus(text, isError = false) {
+      statusMsg.textContent = text;
+      statusMsg.classList.toggle("error", isError);
+    }
+
+    // 3. 로그인 / 로그아웃
+    loginBtn.addEventListener("click", async () => {
+      try {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account" });
+        await signInWithPopup(auth, provider);
+        setStatus("");
+      } catch (error) {
+        console.error("로그인 실패:", error);
+        if (error.code === "auth/unauthorized-domain") {
+          setStatus("이 도메인은 로그인 허용 목록에 없습니다. Firebase 콘솔 → Authentication → 설정 → 승인된 도메인에 추가하세요.", true);
+        } else if (error.code !== "auth/popup-closed-by-user" && error.code !== "auth/cancelled-popup-request") {
+          setStatus("로그인에 실패했습니다: " + error.message, true);
+        }
+      }
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      await signOut(auth);
+      setStatus("");
+    });
+
+    // 로그인 상태에 따라 화면 전환 (학생 페이지의 익명 로그인은 교사로 취급하지 않음)
+    onAuthStateChanged(auth, (user) => {
+      const isGoogleUser = !!user && !user.isAnonymous;
+      loginBtn.hidden = isGoogleUser;
+      logoutBtn.hidden = !isGoogleUser;
+      downloadBtn.hidden = !isGoogleUser;
+      userInfo.textContent = isGoogleUser ? `👤 ${user.email}` : "로그인되지 않음";
+    });
+
+    // CSV 셀 변환: 따옴표 이스케이프 + 엑셀 수식 실행 방지
+    function toCell(value) {
+      let s = value === undefined || value === null ? "" : String(value);
+      if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;   // 학생이 입력한 "=..." 등이 수식으로 실행되지 않도록
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+
+    function toMillis(ts) {
+      if (ts && typeof ts.toMillis === "function") return ts.toMillis();
+      if (ts) return new Date(ts).getTime() || 0;
+      return 0;
+    }
+
+    // 4. 다운로드 버튼 클릭 이벤트
+    downloadBtn.addEventListener("click", async () => {
+      if (!auth.currentUser || auth.currentUser.isAnonymous) {
+        setStatus("먼저 교사 계정으로 로그인하세요.", true);
+        return;
+      }
+
+      try {
+        downloadBtn.textContent = "데이터 집계 중...";
+        downloadBtn.disabled = true;
+        setStatus("Firestore에서 제출된 문서를 조회하고 있습니다...");
+
+        // 'submissions' 컬렉션 데이터 호출 (규칙에서 교사 이메일만 허용)
+        const querySnapshot = await getDocs(collection(db, "submissions"));
+
+        if (querySnapshot.empty) {
+          setStatus("조회된 데이터가 없습니다.");
+          return;
+        }
+
+        // 전체 문서 데이터 수집 및 answers 내부의 문항 키(q1, q2, ...) 자동 추출
+        const docsData = [];
+        const questionKeySet = new Set();
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          docsData.push(data);
+          if (data.answers && typeof data.answers === "object") {
+            Object.keys(data.answers).forEach((k) => questionKeySet.add(k));
+          }
+        });
+
+        // 제출 시각 순 정렬
+        docsData.sort((a, b) => toMillis(a.submittedAt) - toMillis(b.submittedAt));
+
+        // 문항 키를 자연 정렬 (q1, q2, q3 ... 순서 보장)
+        const sortedQuestionKeys = Array.from(questionKeySet).sort((a, b) =>
+          a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+        );
+
+        // 5. CSV 헤더 구성 (학번, 이름, q1, q2, ..., 제출일시)
+        const headerList = ["학번", "이름", ...sortedQuestionKeys, "제출일시"];
+        const lines = [headerList.map(toCell).join(",")];
+
+        // 6. 각 학생별 행 데이터 구성
+        docsData.forEach((data) => {
+          const answersMap = data.answers || {};
+          const answerColumns = sortedQuestionKeys.map((key) => toCell(answersMap[key]));
+
+          let dateStr = "";
+          if (data.submittedAt && typeof data.submittedAt.toDate === "function") {
+            dateStr = data.submittedAt.toDate().toLocaleString("ko-KR");
+          } else if (data.submittedAt) {
+            dateStr = new Date(data.submittedAt).toLocaleString("ko-KR");
+          }
+
+          lines.push([toCell(data.studentId), toCell(data.studentName), ...answerColumns, toCell(dateStr)].join(","));
+        });
+
+        // 7. UTF-8 BOM(\uFEFF) 추가하여 엑셀 한글 깨짐 방지 다운로드
+        const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `제출답안_집계_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        setStatus(`총 ${docsData.length}건의 데이터가 성공적으로 다운로드되었습니다.`);
+      } catch (error) {
+        console.error("다운로드 실패:", error);
+        if (error.code === "permission-denied") {
+          setStatus(`${auth.currentUser.email} 계정은 다운로드 권한이 없습니다. 허용된 교사 계정으로 다시 로그인하세요.`, true);
+        } else {
+          setStatus("데이터 조회에 실패했습니다: " + error.message, true);
+        }
+      } finally {
+        downloadBtn.textContent = "📥 엑셀(CSV) 다운로드";
+        downloadBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

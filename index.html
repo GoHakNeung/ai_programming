@@ -81,12 +81,12 @@
     <!-- 기본 정보 -->
     <div class="form-group">
       <label for="studentId">관리번호 (학번 / 5자리 등)</label>
-      <input type="text" id="studentId" placeholder="예: 2026-001" required>
+      <input type="text" id="studentId" placeholder="예: 2026-001" maxlength="20" required>
     </div>
 
     <div class="form-group">
       <label for="studentName">이름</label>
-      <input type="text" id="studentName" placeholder="홍길동" required>
+      <input type="text" id="studentName" placeholder="홍길동" maxlength="20" required>
     </div>
 
     <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
@@ -104,13 +104,13 @@
     <!-- 문항 2: 단답형 -->
     <div class="form-group">
       <label for="q2">2. 스타일을 지정하여 웹 문서를 꾸미는 언어의 약칭은?</label>
-      <input type="text" id="q2" placeholder="정답을 입력하세요" required>
+      <input type="text" id="q2" placeholder="정답을 입력하세요" maxlength="200" required>
     </div>
 
     <!-- 문항 3: 서술형/소감 -->
     <div class="form-group">
       <label for="q3">3. 오늘 수업에서 가장 흥미로웠던 점을 적어보세요.</label>
-      <textarea id="q3" rows="4" placeholder="자유롭게 작성해 주세요" required></textarea>
+      <textarea id="q3" rows="4" placeholder="자유롭게 작성해 주세요" maxlength="2000" required></textarea>
     </div>
 
     <button type="submit" id="submit-btn">제출하기</button>
@@ -119,17 +119,17 @@
 </div>
 
 <!-- Firebase SDK (Modular CDN 방식) -->
-<!-- Firebase SDK (Modular CDN 방식) -->
 <script type="module">
-  // 1. Firebase 앱 초기화 및 Firestore 모듈 가져오기
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-analytics.js";
-  import { 
-    getFirestore, 
-    collection, 
-    addDoc, 
-    serverTimestamp 
-  } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+  // 1. Firebase 모듈 가져오기 (모든 SDK 버전을 12.19.0으로 통일)
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
   // 2. Firebase 프로젝트 설정값
   const firebaseConfig = {
@@ -145,7 +145,17 @@
   // 3. 초기화
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
+  const auth = getAuth(app);
   const db = getFirestore(app);
+
+  // 익명 로그인 보장: 이미 로그인되어 있으면 그대로, 아니면 익명 로그인
+  async function ensureSignedIn() {
+    await auth.authStateReady();
+    if (!auth.currentUser) {
+      await signInAnonymously(auth);
+    }
+    return auth.currentUser;
+  }
 
   // 4. 폼 제출 이벤트 처리
   const form = document.getElementById("worksheet-form");
@@ -166,8 +176,12 @@
     const q3 = document.getElementById("q3").value.trim();
 
     try {
+      // 학생은 화면 변화 없이 익명 로그인됨
+      const user = await ensureSignedIn();
+
       // 'submissions' 컬렉션에 새 문서 추가
       await addDoc(collection(db, "submissions"), {
+        uid: user.uid,               // 보안 규칙 통과에 필수
         studentId: studentId,
         studentName: studentName,
         answers: {
@@ -184,7 +198,13 @@
     } catch (error) {
       console.error("제출 오류:", error);
       statusMsg.style.color = "red";
-      statusMsg.textContent = "❌ 제출 중 오류가 발생했습니다: " + error.message;
+      if (error.code === "auth/admin-restricted-operation" || error.code === "auth/operation-not-allowed") {
+        statusMsg.textContent = "❌ 익명 로그인이 비활성화되어 있습니다. 선생님께 알려주세요.";
+      } else if (error.code === "permission-denied") {
+        statusMsg.textContent = "❌ 제출 형식이 올바르지 않습니다. 입력 내용을 확인해 주세요.";
+      } else {
+        statusMsg.textContent = "❌ 제출 중 오류가 발생했습니다: " + error.message;
+      }
     } finally {
       submitBtn.disabled = false;
     }
