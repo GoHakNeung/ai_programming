@@ -150,19 +150,35 @@
     }
 
     // 3. 로그인 / 로그아웃
+    let loginInProgress = false;
+
     loginBtn.addEventListener("click", async () => {
+      if (loginInProgress) return;           // 중복 클릭 방지 (cancelled-popup-request 원인)
+      loginInProgress = true;
+      loginBtn.disabled = true;
+      loginBtn.textContent = "로그인 창 진행 중...";
+      setStatus("열린 Google 로그인 창에서 계정을 선택하세요.");
+
       try {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: "select_account" });
-        await signInWithPopup(auth, provider);
-        setStatus("");
+        const result = await signInWithPopup(auth, provider);
+        setStatus(`${result.user.email} 로그인 완료`);
       } catch (error) {
         console.error("로그인 실패:", error);
-        if (error.code === "auth/unauthorized-domain") {
-          setStatus("이 도메인은 로그인 허용 목록에 없습니다. Firebase 콘솔 → Authentication → 설정 → 승인된 도메인에 추가하세요.", true);
-        } else if (error.code !== "auth/popup-closed-by-user" && error.code !== "auth/cancelled-popup-request") {
-          setStatus("로그인에 실패했습니다: " + error.message, true);
-        }
+        const messages = {
+          "auth/unauthorized-domain": "이 도메인은 로그인 허용 목록에 없습니다. Firebase 콘솔 → Authentication → 설정 → 승인된 도메인에 추가하세요.",
+          "auth/operation-not-allowed": "Google 로그인이 비활성화되어 있습니다. Firebase 콘솔 → Authentication → 로그인 방법에서 Google을 사용 설정하세요.",
+          "auth/popup-blocked": "브라우저가 로그인 팝업을 차단했습니다. 팝업을 허용한 뒤 다시 시도하세요.",
+          "auth/popup-closed-by-user": "로그인 창이 완료 전에 닫혔습니다. 창 안에 오류 문구가 있었다면 그 내용을 확인하세요.",
+          "auth/cancelled-popup-request": "이전 로그인 요청이 취소되었습니다. 한 번만 눌러 다시 시도하세요.",
+          "auth/network-request-failed": "네트워크 오류입니다. 인터넷 연결 또는 API 키 리퍼러 설정을 확인하세요."
+        };
+        setStatus((messages[error.code] || "로그인에 실패했습니다") + ` (${error.code})`, true);
+      } finally {
+        loginInProgress = false;
+        loginBtn.disabled = false;
+        loginBtn.textContent = "Google 계정으로 로그인";
       }
     });
 
