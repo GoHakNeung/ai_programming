@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>아침활동 곱셈 퀴즈</title>
+
+  <style>
+    [hidden] { display: none !important; }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: "Malgun Gothic", Arial, sans-serif;
+      max-width: 600px;
+      margin: 30px auto;
+      padding: 0 16px 40px;
+      background: #f7f9fc;
+      color: #222;
+    }
+
+    h1 { text-align: center; margin-bottom: 4px; }
+    .sub { text-align: center; color: #666; margin-top: 0; }
+
+    .box {
+      background: #fff;
+      border: 1px solid #dde3ec;
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    h2 { margin-top: 0; font-size: 18px; }
+
+    label { display: block; margin: 14px 0 4px; font-weight: bold; }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"] {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid #bbb;
+      border-radius: 8px;
+    }
+
+    input[type="range"] { width: 100%; }
+
+    button {
+      padding: 10px 16px;
+      margin: 8px 6px 0 0;
+      font-size: 15px;
+      border: none;
+      border-radius: 8px;
+      background: #3b6fd8;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    button.secondary { background: #7a8699; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+
+    .progress { color: #555; margin-bottom: 8px; }
+
+    .question {
+      font-size: 44px;
+      font-weight: bold;
+      text-align: center;
+      margin: 16px 0;
+    }
+
+    #feedback { min-height: 28px; margin-top: 10px; font-size: 18px; font-weight: bold; }
+    .ok { color: #1a9a4a; }
+    .ng { color: #d33; }
+
+    .record { border-bottom: 1px solid #eee; padding: 8px 0; }
+    .record:last-child { border-bottom: none; }
+    .record .meta { font-size: 13px; color: #777; }
+
+    #bestText { font-size: 14px; color: #3b6fd8; font-weight: normal; }
+    #saveStatus { margin-top: 8px; color: #555; }
+    summary { cursor: pointer; font-weight: bold; }
+  </style>
+</head>
+
+<body>
+
+<h1>🧮 아침활동 곱셈 퀴즈</h1>
+<p class="sub">닉네임을 쓰고 시작하면 결과가 자동으로 기록돼요.</p>
+
+<!-- 1. 설정 -->
+<section class="box" id="setupBox">
+  <h2>1. 게임 설정</h2>
+
+  <label for="nickname">닉네임 (최대 10자)</label>
+  <input type="text" id="nickname" maxlength="10" placeholder="예: 별이">
+
+  <label for="danSlider">곱셈 범위: 2단 ~ <span id="danValue">5</span>단</label>
+  <input type="range" id="danSlider" min="2" max="9" value="5">
+
+  <label for="countSlider">문제 수: <span id="countValue">5</span>문제</label>
+  <input type="range" id="countSlider" min="5" max="10" value="5">
+
+  <button id="startBtn">퀴즈 시작</button>
+</section>
+
+<!-- 2. 퀴즈 진행 -->
+<section class="box" id="gameBox" hidden>
+  <div class="progress">
+    문제 <span id="qNum">1</span> / <span id="qTotal">5</span>
+    · 점수 <span id="scoreNow">0</span>
+  </div>
+
+  <div class="question" id="question"></div>
+
+  <input type="number" id="answer" inputmode="numeric" placeholder="정답을 입력하세요">
+  <button id="submitBtn">제출</button>
+
+  <div id="feedback"></div>
+</section>
+
+<!-- 3. 결과 -->
+<section class="box" id="resultBox" hidden>
+  <h2>결과</h2>
+  <div id="finalText"></div>
+  <div id="saveStatus"></div>
+  <button id="againBtn">다시 하기</button>
+</section>
+
+<!-- 4. 기록 -->
+<section class="box">
+  <h2><span id="recordTitle">내 기록</span> <small id="bestText"></small></h2>
+  <button id="refreshBtn" class="secondary">기록 새로고침</button>
+  <div id="records">불러오는 중...</div>
+</section>
+
+<!-- 5. 교사용 -->
+<details class="box">
+  <summary>교사 로그인 (전체 기록 보기)</summary>
+
+  <div id="adminForm">
+    <label for="adminEmail">이메일</label>
+    <input type="email" id="adminEmail" autocomplete="email">
+    <label for="adminPassword">비밀번호</label>
+    <input type="password" id="adminPassword" autocomplete="current-password">
+    <button id="adminLoginBtn">교사 로그인</button>
+  </div>
+
+  <div id="adminArea" hidden>
+    <div id="adminInfo"></div>
+    <button id="adminLogoutBtn" class="secondary">로그아웃</button>
+  </div>
+</details>
+
+
+<script type="module">
+
+/* ================================
+   Firebase SDK
+================================ */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+
+import {
+  getAuth,
+  signInAnonymously,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+
+/* ================================
+   Firebase 설정
+================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBh8KVIP5zsKAxURYJM4qh8d9cKMRyYjh8",
+  authDomain: "worksheet-f7a63.firebaseapp.com",
+  projectId: "worksheet-f7a63",
+  storageBucket: "worksheet-f7a63.firebasestorage.app",
+  messagingSenderId: "356412174716",
+  appId: "1:356412174716:web:faa71b37d2ce5f852674f9",
+  measurementId: "G-D7893EEBD8"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const COL = "quizResults";
+
+
+/* ================================
+   HTML 요소
+================================ */
+const $ = (id) => document.getElementById(id);
+
+const nicknameInput = $("nickname");
+const danSlider = $("danSlider");
+const countSlider = $("countSlider");
+const startBtn = $("startBtn");
+
+const setupBox = $("setupBox");
+const gameBox = $("gameBox");
+const resultBox = $("resultBox");
+
+const questionEl = $("question");
+const answerInput = $("answer");
+const submitBtn = $("submitBtn");
+const feedback = $("feedback");
+
+const recordsBox = $("records");
+const recordTitle = $("recordTitle");
+const bestText = $("bestText");
+
+
+/* ================================
+   슬라이더 표시
+================================ */
+danSlider.addEventListener("input", () => {
+  $("danValue").textContent = danSlider.value;
+});
+
+countSlider.addEventListener("input", () => {
+  $("countValue").textContent = countSlider.value;
+});
+
+
+/* ================================
+   인증: 로그인 없이 쓰도록 익명 로그인
+   (교사 계정으로 로그인하면 전체 기록 조회)
+================================ */
+let currentUser = null;
+let isAdmin = false;
+
+onAuthStateChanged(auth, async (user) => {
+
+  if (!user) {
+    try {
+      await signInAnonymously(auth);
+    } catch (error) {
+      console.error(error);
+      recordsBox.textContent =
+        "접속 준비 실패: " + error.code +
+        "\n(Firebase 콘솔에서 '익명' 로그인이 켜져 있는지 확인하세요.)";
+    }
+    return;
+  }
+
+  currentUser = user;
+  isAdmin = !user.isAnonymous;
+
+  $("adminForm").hidden = isAdmin;
+  $("adminArea").hidden = !isAdmin;
+  $("adminInfo").textContent = isAdmin ? "교사 계정: " + user.email : "";
+
+  loadRecords();
+});
+
+$("adminLoginBtn").addEventListener("click", async () => {
+  try {
+    await signInWithEmailAndPassword(
+      auth,
+      $("adminEmail").value.trim(),
+      $("adminPassword").value
+    );
+    $("adminPassword").value = "";
+  } catch (error) {
+    console.error(error);
+    alert("로그인 실패\n" + error.code);
+  }
+});
+
+$("adminLogoutBtn").addEventListener("click", async () => {
+  await signOut(auth);   // 로그아웃되면 다시 익명 사용자로 전환됨
+});
+
+
+/* ================================
+   퀴즈 로직
+================================ */
+let questions = [];
+let idx = 0;
+let score = 0;
+let total = 0;
+let maxDan = 5;
+let locked = false;
+
+const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+startBtn.addEventListener("click", () => {
+
+  const nick = nicknameInput.value.trim();
+
+  if (!nick) {
+    alert("닉네임을 입력하세요.");
+    nicknameInput.focus();
+    return;
+  }
+
+  maxDan = Number(danSlider.value);
+  total = Number(countSlider.value);
+
+  questions = [];
+  for (let i = 0; i < total; i++) {
+    questions.push({ a: rand(2, maxDan), b: rand(1, 9) });
+  }
+
+  idx = 0;
+  score = 0;
+
+  setupBox.hidden = true;
+  resultBox.hidden = true;
+  gameBox.hidden = false;
+
+  showQuestion();
+});
+
+function showQuestion() {
+  const q = questions[idx];
+
+  $("qNum").textContent = idx + 1;
+  $("qTotal").textContent = total;
+  $("scoreNow").textContent = score;
+
+  questionEl.textContent = q.a + " × " + q.b + " = ?";
+
+  answerInput.value = "";
+  answerInput.disabled = false;
+  submitBtn.disabled = false;
+  feedback.textContent = "";
+  feedback.className = "";
+  locked = false;
+
+  answerInput.focus();
+}
+
+function submitAnswer() {
+
+  if (locked || answerInput.value === "") return;
+  locked = true;
+
+  const q = questions[idx];
+  const correct = Number(answerInput.value) === q.a * q.b;
+
+  if (correct) {
+    score++;
+    feedback.textContent = "⭕ 정답!";
+    feedback.className = "ok";
+  } else {
+    feedback.textContent = "❌ 오답! 정답은 " + (q.a * q.b);
+    feedback.className = "ng";
+  }
+
+  $("scoreNow").textContent = score;
+  answerInput.disabled = true;
+  submitBtn.disabled = true;
+
+  setTimeout(() => {
+    idx++;
+    if (idx < total) {
+      showQuestion();
+    } else {
+      finishQuiz();
+    }
+  }, 900);
+}
+
+submitBtn.addEventListener("click", submitAnswer);
+
+answerInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") submitAnswer();
+});
+
+
+/* ================================
+   결과 저장 (Firestore)
+================================ */
+async function finishQuiz() {
+
+  gameBox.hidden = true;
+  resultBox.hidden = false;
+
+  const percent = Math.round((score / total) * 100);
+
+  $("finalText").textContent =
+    nicknameInput.value.trim() + " 님: " +
+    total + "문제 중 " + score + "문제 정답 (" + percent + "%)";
+
+  const saveStatus = $("saveStatus");
+  saveStatus.textContent = "기록 저장 중...";
+
+  try {
+    await addDoc(collection(db, COL), {
+      uid: currentUser.uid,
+      nickname: nicknameInput.value.trim(),
+      score: score,
+      total: total,
+      maxDan: maxDan,
+      createdAt: serverTimestamp()
+    });
+
+    saveStatus.textContent = "✅ 기록이 저장되었습니다.";
+    loadRecords();
+
+  } catch (error) {
+    console.error(error);
+    saveStatus.textContent = "저장 실패: " + error.code;
+  }
+}
+
+$("againBtn").addEventListener("click", () => {
+  resultBox.hidden = true;
+  setupBox.hidden = false;
+});
+
+
+/* ================================
+   기록 읽기 (Firestore)
+   - 학생: 내 기록만
+   - 교사: 전체 기록
+================================ */
+async function loadRecords() {
+
+  if (!currentUser) return;
+
+  recordsBox.textContent = "불러오는 중...";
+  recordTitle.textContent = isAdmin ? "전체 기록 (교사용)" : "내 기록";
+
+  try {
+    let q;
+
+    if (isAdmin) {
+      q = query(collection(db, COL), orderBy("createdAt", "desc"), limit(50));
+    } else {
+      q = query(collection(db, COL), where("uid", "==", currentUser.uid));
+    }
+
+    const snap = await getDocs(q);
+    const rows = snap.docs.map((d) => d.data());
+
+    if (!isAdmin) {
+      rows.sort((a, b) =>
+        (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0)
+      );
+    }
+
+    recordsBox.textContent = "";
+
+    if (rows.length === 0) {
+      recordsBox.textContent = "아직 기록이 없습니다.";
+      bestText.textContent = "";
+      return;
+    }
+
+    let best = 0;
+
+    rows.slice(0, 30).forEach((r) => {
+      const percent = Math.round((r.score / r.total) * 100);
+      if (!isAdmin && percent > best) best = percent;
+
+      const item = document.createElement("div");
+      item.className = "record";
+
+      const main = document.createElement("div");
+      main.textContent =
+        r.nickname + " · " + r.score + "/" + r.total +
+        " (" + percent + "%) · 2~" + r.maxDan + "단";
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = r.createdAt
+        ? r.createdAt.toDate().toLocaleString("ko-KR")
+        : "";
+
+      item.appendChild(main);
+      item.appendChild(meta);
+      recordsBox.appendChild(item);
+    });
+
+    bestText.textContent = isAdmin ? "" : "최고 정답률 " + best + "%";
+
+  } catch (error) {
+    console.error(error);
+    recordsBox.textContent =
+      error.code === "permission-denied"
+        ? "권한이 없습니다. (permission-denied)"
+        : "읽기 실패: " + error.code;
+  }
+}
+
+$("refreshBtn").addEventListener("click", loadRecords);
+
+</script>
+
+</body>
+</html>
