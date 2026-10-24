@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>조경 수목 맞히기 퀴즈</title>
+  <style>
+    :root {
+      --primary-color: #2e7d32;
+      --secondary-color: #81c784;
+      --background-color: #f1f8e9;
+      --card-bg: #ffffff;
+      --text-color: #333333;
+    }
+    body {
+      font-family: 'Pretendard', sans-serif;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      background-color: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 480px;
+      padding: 24px;
+      box-sizing: border-box;
+      text-align: center;
+    }
+    h1 { color: var(--primary-color); margin-bottom: 8px; font-size: 1.5rem; }
+    p { font-size: 0.95rem; color: #666; }
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      margin: 12px 0;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      box-sizing: border-box;
+      font-size: 1rem;
+    }
+    button {
+      width: 100%;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    button:hover { background-color: #1b5e20; }
+    .btn-option {
+      background-color: #f5f5f5;
+      color: #333;
+      border: 2px solid #e0e0e0;
+      margin-bottom: 8px;
+      text-align: left;
+      padding-left: 16px;
+    }
+    .btn-option:hover { background-color: #e8f5e9; border-color: var(--secondary-color); }
+    .tree-hint {
+      background-color: #e8f5e9;
+      padding: 16px;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #1b5e20;
+      margin-bottom: 16px;
+    }
+    .leaderboard {
+      margin-top: 24px;
+      text-align: left;
+      background: #fafafa;
+      padding: 12px;
+      border-radius: 8px;
+    }
+    .leaderboard h3 { margin-top: 0; color: var(--primary-color); font-size: 1.1rem; }
+    .leaderboard ol { padding-left: 20px; margin-bottom: 0; }
+    .leaderboard li { margin-bottom: 4px; font-size: 0.9rem; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>🌲 조경 수목 마스터 퀴즈</h1>
+    <p>1학년 조경 기초 - 주요 조경수 특징 맞히기</p>
+
+    <div id="start-screen">
+      <input type="text" id="student-name" placeholder="학번과 이름을 입력하세요 (예: 10101 홍길동)">
+      <button onclick="startQuiz()">퀴즈 시작하기</button>
+    </div>
+
+    <div id="quiz-screen" class="hidden">
+      <div class="tree-hint" id="question-text">질문 불러오는 중...</div>
+      <div id="options-container"></div>
+    </div>
+
+    <div id="result-screen" class="hidden">
+      <h2>🎉 퀴즈 완료!</h2>
+      <p id="final-score"></p>
+      <button onclick="location.reload()">다시 도전하기</button>
+    </div>
+
+    <div class="leaderboard">
+      <h3>🏆 실시간 명예의 전당 (Top 5)</h3>
+      <ol id="leaderboard-list">
+        <li>기록을 불러오는 중...</li>
+      </ol>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBAeqzCaG3-9YoQ-Mo8NR9GP4aAx2NfZ9c",
+      authDomain: "tree-quiz-2c5fc.firebaseapp.com",
+      projectId: "tree-quiz-2c5fc",
+      storageBucket: "tree-quiz-2c5fc.firebasestorage.app",
+      messagingSenderId: "736462659765",
+      appId: "1:736462659765:web:6109385f88da6476579efc"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const quizData = [
+      {
+        hint: "💡 힌트: 봄에 화려한 분홍색 꽃이 피며, 대표적인 상징성이 높은 조경수입니다.",
+        options: ["왕벚나무", "소나무", "향나무", "느티나무"],
+        answer: 0
+      },
+      {
+        hint: "💡 힌트: 바늘잎나무(침엽수)로 겨울에도 푸른 잎을 유지하며 대표적인 정원수입니다.",
+        options: ["단풍나무", "소나무", "은행나무", "배롱나무"],
+        answer: 1
+      },
+      {
+        hint: "💡 힌트: 가을에 노랗게 물들며, 가로수로 많이 심는 침엽수성 낙엽수입니다.",
+        options: ["메타세쿼이아", "은행나무", "무궁화", "배롱나무"],
+        answer: 1
+      },
+      {
+        hint: "💡 힌트: 여름철 붉은 꽃이 오랫동안 피어 '목백일홍'이라고도 불립니다.",
+        options: ["배롱나무", "이팝나무", "산수유", "매화나무"],
+        answer: 0
+      }
+    ];
+
+    let currentQuizIndex = 0;
+    let score = 0;
+    let userName = "";
+
+    window.startQuiz = function() {
+      const nameInput = document.getElementById("student-name").value.trim();
+      if (!nameInput) {
+        alert("학번과 이름을 입력해주세요!");
+        return;
+      }
+      userName = nameInput;
+      document.getElementById("start-screen").classList.add("hidden");
+      document.getElementById("quiz-screen").classList.remove("hidden");
+      showQuestion();
+    };
+
+    function showQuestion() {
+      if (currentQuizIndex >= quizData.length) {
+        endQuiz();
+        return;
+      }
+      const q = quizData[currentQuizIndex];
+      document.getElementById("question-text").innerText = q.hint;
+      const optsContainer = document.getElementById("options-container");
+      optsContainer.innerHTML = "";
+
+      q.options.forEach((opt, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "btn-option";
+        btn.innerText = `${idx + 1}. ${opt}`;
+        btn.onclick = () => selectOption(idx);
+        optsContainer.appendChild(btn);
+      });
+    }
+
+    function selectOption(index) {
+      if (index === quizData[currentQuizIndex].answer) {
+        score += 25;
+      }
+      currentQuizIndex++;
+      showQuestion();
+    }
+
+    async function endQuiz() {
+      document.getElementById("quiz-screen").classList.add("hidden");
+      document.getElementById("result-screen").classList.remove("hidden");
+      document.getElementById("final-score").innerText = `${userName}님의 최종 점수: ${score}점 / 100점`;
+
+      try {
+        await addDoc(collection(db, "tree_quiz_scores"), {
+          name: userName,
+          score: score,
+          timestamp: new Date()
+        });
+      } catch (e) {
+        console.error("점수 저장 실패:", e);
+      }
+    }
+
+    const q = query(collection(db, "tree_quiz_scores"), orderBy("score",="desc"), limit(5));
+    onSnapshot(q, (snapshot) => {
+      const listEl = document.getElementById("leaderboard-list");
+      listEl.innerHTML = "";
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const li = document.createElement("li");
+        li.innerText = `${data.name} - ${data.score}점`;
+        listEl.appendChild(li);
+      });
+      if (snapshot.empty) {
+        listEl.innerHTML = "<li>아직 제출된 기록이 없습니다.</li>";
+      }
+    });
+  </script>
+</body>
+</html>
