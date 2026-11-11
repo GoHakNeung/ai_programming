@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>마음 날씨 루틴 — 감정이해루틴 웹앱</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --ink:#26303b; --muted:#66727f; --line:#e4e8ec; --bg:#f6f4ee; --card:#fff;
+      --accent:#2f7d63; --accent-soft:#e6f2ec; --warn:#b4541a; --warn-soft:#fbede3;
+      --joy:#f5b82e; --sad:#4f8fd6; --angry:#e0564b; --worry:#8d6bd1; --shy:#e57aa5; --calm:#3fae84; --tired:#8a97a6;
+      --radius:18px; --shadow:0 6px 22px rgba(38,48,59,.08);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:var(--bg);color:var(--ink);font-family:"Noto Sans KR","Malgun Gothic",system-ui,sans-serif;line-height:1.65;font-size:16px}
+    button{font:inherit;cursor:pointer}
+    input,textarea,select{font:inherit}
+    .hidden{display:none!important}
+    .title-font{font-family:"Jua","Noto Sans KR",sans-serif;font-weight:400}
+
+    /* 헤더 */
+    header{position:sticky;top:0;z-index:20;background:rgba(246,244,238,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+    .bar{max-width:1040px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:10px 16px}
+    .logo{display:flex;align-items:center;gap:10px;background:none;border:0;padding:0;color:var(--ink)}
+    .logo .mark{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#ffd76a,#7fd1b0);display:grid;place-items:center;font-size:22px}
+    .logo b{font-family:"Jua";font-weight:400;font-size:21px}
+    .logo small{display:block;color:var(--muted);font-size:12px;margin-top:-4px}
+    nav{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+    nav button{border:0;background:transparent;padding:8px 12px;border-radius:999px;color:var(--muted);font-weight:700;font-size:14px}
+    nav button.on,nav button:hover{background:var(--ink);color:#fff}
+    .mode-badge{font-size:12px;padding:4px 10px;border-radius:999px;font-weight:700}
+    .mode-badge.demo{background:var(--warn-soft);color:var(--warn)}
+    .mode-badge.live{background:var(--accent-soft);color:var(--accent)}
+
+    main{max-width:1040px;margin:0 auto;padding:24px 16px 80px}
+    .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px}
+    h1,h2,h3{line-height:1.3;margin:0}
+    .eyebrow{display:inline-block;font-size:12.5px;font-weight:800;letter-spacing:.5px;color:var(--accent);background:var(--accent-soft);padding:4px 10px;border-radius:999px}
+    .muted{color:var(--muted)}
+    .btn{border:0;border-radius:14px;padding:13px 20px;font-weight:800;font-size:16px;background:var(--ink);color:#fff;transition:transform .12s, opacity .12s}
+    .btn:hover{transform:translateY(-1px)}
+    .btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+    .btn.ghost{background:#fff;color:var(--ink);border:2px solid var(--line)}
+    .btn.green{background:var(--accent)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .spread{justify-content:space-between}
+    label.field{display:block;font-weight:700;font-size:14px;margin-bottom:6px}
+    .input{width:100%;border:2px solid var(--line);border-radius:12px;padding:11px 14px;background:#fff;color:var(--ink)}
+    .input:focus{outline:none;border-color:var(--accent)}
+
+    /* 홈 */
+    .hero{position:relative;overflow:hidden;border-radius:26px;padding:40px 32px;color:#fff;
+      background:radial-gradient(circle at 85% 20%,rgba(255,226,120,.85) 0 70px,transparent 71px),
+                 linear-gradient(160deg,#5b8fd8 0%,#6fb7c9 55%,#8fd3a8 100%)}
+    .hero h1{font-family:"Jua";font-weight:400;font-size:clamp(28px,5vw,44px);margin:12px 0 10px;text-shadow:0 2px 0 rgba(0,0,0,.08)}
+    .hero p{max-width:560px;margin:0;opacity:.95}
+    .hero .eyebrow{background:rgba(255,255,255,.25);color:#fff}
+    .cloud{position:absolute;background:#fff;border-radius:999px;opacity:.55}
+    .cloud.c1{width:120px;height:36px;right:150px;top:110px;animation:drift 9s ease-in-out infinite alternate}
+    .cloud.c2{width:80px;height:26px;right:40px;top:160px;animation:drift 7s ease-in-out infinite alternate-reverse}
+    @keyframes drift{to{transform:translateX(-30px)}}
+    .weather-strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
+    .weather-strip span{background:rgba(255,255,255,.22);padding:6px 12px;border-radius:999px;font-size:14px;font-weight:700}
+    .grid2{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;margin-top:20px}
+    .menu{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:20px}
+    .menu button{text-align:left;border:0;background:#fff;border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);transition:transform .15s}
+    .menu button:hover{transform:translateY(-3px)}
+    .menu .ico{font-size:32px}
+    .menu b{display:block;font-family:"Jua";font-weight:400;font-size:21px;margin:6px 0 2px}
+    .menu span{color:var(--muted);font-size:14px}
+    .flow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+    .flow div{background:var(--bg);border-radius:12px;padding:10px 6px;text-align:center;font-size:13px;font-weight:700}
+    .flow div i{display:block;font-style:normal;font-size:22px}
+    .stamp-line{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+    .stamp{width:34px;height:34px;border-radius:50%;border:2px dashed var(--line);display:grid;place-items:center;font-size:17px}
+    .stamp.got{border:2px solid var(--joy);background:#fff8e1}
+
+    /* 루틴 */
+    .progress{display:flex;gap:6px;margin-bottom:18px}
+    .progress div{flex:1;height:8px;border-radius:99px;background:var(--line);transition:background .3s}
+    .progress div.on{background:var(--accent)}
+    .step-label{font-size:13px;font-weight:800;color:var(--accent);letter-spacing:.5px}
+    .q{font-family:"Jua";font-weight:400;font-size:clamp(23px,3.6vw,30px);margin:6px 0 4px}
+    .chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:18px 0}
+    .chip{border:2px solid var(--line);background:#fff;border-radius:16px;padding:14px 12px;text-align:center;font-weight:700;transition:all .15s;color:var(--ink)}
+    .chip:hover{border-color:#c9d1d8;transform:translateY(-2px)}
+    .chip .big{display:block;font-size:34px;line-height:1.2}
+    .chip small{display:block;font-weight:500;color:var(--muted);font-size:12.5px}
+    .chip.sel{border-color:var(--c,var(--accent));background:color-mix(in srgb,var(--c,var(--accent)) 14%,#fff);box-shadow:0 0 0 3px color-mix(in srgb,var(--c,var(--accent)) 25%,transparent)}
+    .chips.small{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+    .chips.small .chip{padding:11px 8px;font-size:15px}
+    .meter{margin:18px 0 6px}
+    .meter input{width:100%;accent-color:var(--c,var(--accent));height:28px}
+    .meter-labels{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+    .meter-face{font-size:44px;text-align:center;transition:transform .2s}
+    .sentence{background:var(--bg);border-radius:16px;padding:16px 18px;font-size:19px;font-weight:700;margin:10px 0}
+    .sentence em{font-style:normal;color:var(--c,var(--accent));border-bottom:3px solid currentColor}
+    .nav-row{display:flex;justify-content:space-between;gap:10px;margin-top:22px}
+    .tip{background:var(--accent-soft);border-radius:14px;padding:12px 16px;font-size:14.5px;margin-top:14px}
+    .tip.warn{background:var(--warn-soft)}
+    .layout{display:grid;grid-template-columns:1fr 290px;gap:18px;align-items:start}
+    .side .card{padding:18px}
+    .side h3{font-size:16px;margin-bottom:8px}
+    .mini-summary div{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:6px 0;font-size:14px}
+    .mini-summary div span:last-child{font-weight:700;text-align:right}
+
+    /* 활동: 호흡 */
+    .activity{background:var(--bg);border-radius:18px;padding:20px;margin-top:16px;text-align:center}
+    .balloon-wrap{height:210px;display:grid;place-items:center}
+    .balloon{width:90px;height:90px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffd1dc,#ef7aa0);transition:transform 4s ease-in-out;box-shadow:0 8px 20px rgba(239,122,160,.35)}
+    .breath-text{font-family:"Jua";font-size:24px;min-height:36px}
+    .senses li{list-style:none;margin:8px 0}
+    .senses{padding:0;text-align:left;max-width:440px;margin:10px auto}
+    .senses label{display:flex;gap:10px;align-items:center;background:#fff;border-radius:12px;padding:10px 14px;font-weight:600}
+    .senses input{width:20px;height:20px;accent-color:var(--accent)}
+    .i-msg{background:#fff;border-radius:16px;padding:16px;text-align:left;font-size:17px;line-height:1.9}
+    .i-msg select,.i-msg input{border:2px solid var(--line);border-radius:10px;padding:4px 8px;margin:2px}
+
+    /* 마음 대화 */
+    .chat{background:var(--bg);border-radius:18px;padding:16px;margin-top:16px;max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+    .msg{display:flex;gap:8px;align-items:flex-end;max-width:88%}
+    .msg.me{align-self:flex-end;flex-direction:row-reverse}
+    .msg .av{flex:0 0 36px;height:36px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:20px;box-shadow:var(--shadow)}
+    .bubble{background:#fff;border-radius:16px 16px 16px 4px;padding:10px 14px;font-size:15.5px;box-shadow:0 2px 8px rgba(38,48,59,.06)}
+    .msg.me .bubble{background:var(--accent);color:#fff;border-radius:16px 16px 4px 16px}
+    .bubble b{color:var(--accent)}
+    .msg.me .bubble b{color:#fff}
+    .typing{display:flex;gap:4px;padding:14px}
+    .typing i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:blink 1s infinite}
+    .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+    @keyframes blink{50%{opacity:.25}}
+    .quick{margin-top:12px;font-size:13px}
+    .quick > div{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    .qchip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600;color:var(--ink)}
+    .qchip:hover{border-color:var(--accent)}
+    .qchip.sel{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+    .chat-input{display:flex;gap:8px;margin-top:10px}
+    .chat-input .btn{flex:0 0 auto;padding:11px 18px}
+    .skip{border:0;background:none;color:var(--muted);font-size:13.5px;margin-top:6px;text-decoration:underline}
+    .narrative{background:#fffaf0;border:2px solid #f3e2b8;border-radius:16px;padding:16px;margin-top:14px}
+    .narrative textarea{margin-top:10px;resize:vertical;font-size:16px;line-height:1.6}
+    .lv{font-size:13px;font-weight:800;background:#fff;border-radius:999px;padding:3px 10px;color:var(--accent)}
+    .lv-track{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+    .lv-track div{background:#fff;border-radius:10px;padding:6px 4px;text-align:center;font-size:12.5px;font-weight:700;color:var(--muted);opacity:.55}
+    .lv-track div.on{opacity:1;color:var(--accent);background:var(--accent-soft)}
+    .lv-track span{display:block;font-size:18px}
+    .growth{display:flex;gap:8px;align-items:flex-end;height:150px;background:var(--bg);border-radius:16px;padding:14px 14px 6px;margin-top:10px;overflow-x:auto}
+    .g-col{flex:1;min-width:34px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px}
+    .g-bar{width:100%;max-width:40px;border-radius:10px 10px 4px 4px;display:flex;justify-content:center;padding-top:4px;font-size:15px;transition:height .5s}
+    .g-col small{font-size:11px;color:var(--muted)}
+    .lv-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:8px}
+
+    /* 완료 카드 */
+    .done-card{text-align:center;padding:34px 24px}
+    .done-card .wx{font-size:72px}
+    .compare{display:flex;justify-content:center;gap:20px;align-items:center;margin:16px 0;font-weight:800;font-size:18px}
+    .compare .arrow{font-size:26px;color:var(--muted)}
+    .confetti{position:fixed;top:-20px;font-size:24px;animation:fall 2.4s linear forwards;pointer-events:none;z-index:50}
+    @keyframes fall{to{transform:translateY(105vh) rotate(360deg);opacity:.2}}
+
+    /* 연습 */
+    .scene{display:grid;grid-template-columns:150px 1fr;gap:20px;align-items:center;background:var(--bg);border-radius:18px;padding:18px}
+    .scene .face{font-size:84px;text-align:center;background:#fff;border-radius:50%;width:140px;height:140px;display:grid;place-items:center}
+    .scene p{margin:4px 0}
+    .answer{display:block;width:100%;text-align:left;border:2px solid var(--line);background:#fff;border-radius:14px;padding:13px 16px;margin:8px 0;font-weight:600;color:var(--ink)}
+    .answer.good{border-color:var(--calm);background:#e8f7f0}
+    .answer.bad{border-color:var(--angry);background:#fdeceb}
+    .answer.meh{border-color:var(--joy);background:#fff6df}
+    .feedback{border-radius:14px;padding:12px 16px;margin-top:10px;font-weight:600}
+
+    /* 기록 / 선생님 */
+    .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+    .stat{background:#fff;border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+    .stat b{display:block;font-size:28px;font-weight:900}
+    .stat span{font-size:13px;color:var(--muted)}
+    .bars{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+    .bar-line{display:grid;grid-template-columns:104px 1fr 34px;gap:10px;align-items:center;font-size:14px;font-weight:700}
+    .bar-track{background:var(--bg);border-radius:99px;height:18px;overflow:hidden}
+    .bar-fill{height:100%;border-radius:99px;transition:width .5s}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+    th{color:var(--muted);font-weight:700;font-size:13px;white-space:nowrap}
+    .tbl-wrap{overflow-x:auto}
+    .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12.5px;font-weight:700;background:var(--bg)}
+    .alert-list li{margin:6px 0}
+    .diary{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:14px}
+    .diary .entry{background:#fff;border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);border-top:6px solid var(--c)}
+    .diary .entry .d{font-size:12.5px;color:var(--muted)}
+    .diary .entry b{font-size:17px}
+    .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:12px;font-weight:700;z-index:60;box-shadow:var(--shadow)}
+    footer{text-align:center;color:var(--muted);font-size:13px;padding:20px}
+
+    @media (max-width:820px){
+      .grid2,.layout{grid-template-columns:1fr}
+      .flow{grid-template-columns:repeat(3,1fr)}
+      .stat-row{grid-template-columns:repeat(2,1fr)}
+      .side{order:-1}
+      .side .mini-summary{display:none}
+    }
+    @media (max-width:560px){
+      .menu{grid-template-columns:1fr}
+      .hero{padding:30px 22px}
+      .scene{grid-template-columns:1fr;text-align:center}
+      .scene .face{margin:0 auto;width:110px;height:110px;font-size:64px}
+      nav button{padding:6px 9px;font-size:13px}
+      .bar{flex-wrap:wrap}
+      .card{padding:18px}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <button class="logo" data-go="home" aria-label="처음 화면">
+        <span class="mark">🌤️</span>
+        <span><b>마음 날씨 루틴</b><small>감정 이해 6단계 연습</small></span>
+      </button>
+      <span id="modeBadge" class="mode-badge demo">체험 모드</span>
+      <nav>
+        <button data-go="home" class="on">처음</button>
+        <button data-go="routine">루틴</button>
+        <button data-go="practice">친구 마음</button>
+        <button data-go="diary">기록장</button>
+        <button data-go="teacher">선생님</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- ───────── 홈 ───────── -->
+    <section id="view-home">
+      <div class="hero">
+        <div class="cloud c1"></div><div class="cloud c2"></div>
+        <span class="eyebrow">매일 아침 5분 · 감정 이해 루틴</span>
+        <h1>오늘 내 마음은<br>어떤 날씨일까?</h1>
+        <p>감정에는 좋은 감정, 나쁜 감정이 따로 없어요. 내 마음을 알아차리고, 이름을 붙이고, 마음 부엉이와 이야기하며 <b>왜 그런 마음이 들었는지</b> 들여다봐요.</p>
+        <div class="weather-strip">
+          <span>☀️ 기쁨</span><span>🌧️ 슬픔</span><span>⛈️ 화남</span><span>🌫️ 걱정</span><span>🌸 부끄러움</span><span>🍃 평온</span><span>☁️ 피곤</span>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <span class="eyebrow">나의 이름표</span>
+          <h2 class="title-font" style="font-size:24px;margin:10px 0 4px">누구의 마음 날씨인가요?</h2>
+          <p class="muted" style="margin:0 0 14px;font-size:14.5px">진짜 이름 대신 <b>번호나 별명</b>을 써도 괜찮아요. 학급 코드는 선생님이 알려 줘요.</p>
+          <div class="row" style="align-items:flex-end">
+            <div style="flex:1;min-width:140px">
+              <label class="field" for="classCode">학급 코드</label>
+              <input id="classCode" class="input" maxlength="20" placeholder="예: 3-2반">
+            </div>
+            <div style="flex:1;min-width:140px">
+              <label class="field" for="nickname">번호 또는 별명</label>
+              <input id="nickname" class="input" maxlength="20" placeholder="예: 7번 별빛">
+            </div>
+          </div>
+          <div class="row" style="margin-top:16px">
+            <button class="btn green" id="startRoutine">🌤️ 오늘의 마음 루틴 시작</button>
+          </div>
+          <p id="profileMsg" class="muted" style="font-size:13.5px;margin:10px 0 0"></p>
+        </div>
+        <div class="card">
+          <span class="eyebrow">이번 주 마음 도장</span>
+          <h3 class="title-font" style="font-size:22px;margin:10px 0 2px" id="stampTitle">이름표를 먼저 적어 주세요</h3>
+          <p class="muted" style="margin:0;font-size:14px">루틴을 마칠 때마다 도장이 하나씩 찍혀요.</p>
+          <div class="stamp-line" id="stampLine"></div>
+          <div class="flow">
+            <div><i>🌤️</i>마음 날씨</div>
+            <div><i>🫀</i>몸의 신호</div>
+            <div><i>🏷️</i>이름 붙이기</div>
+            <div><i>🦉</i>마음 대화</div>
+            <div><i>🌱</i>마음 돌보기</div>
+            <div><i>🔁</i>돌아보기</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="menu">
+        <button data-go="practice"><span class="ico">👀</span><b>친구 마음 읽기</b><span>표정과 상황을 보고 친구의 마음을 짐작하고, 공감하는 말을 골라요.</span></button>
+        <button data-go="diary"><span class="ico">📒</span><b>나의 마음 기록장</b><span>지금까지 남긴 마음 날씨를 모아 보고, 나를 돌본 방법을 돌아봐요.</span></button>
+      </div>
+    </section>
+
+    <!-- ───────── 루틴 ───────── -->
+    <section id="view-routine" class="hidden">
+      <div class="layout">
+        <div class="card" id="routineCard"></div>
+        <aside class="side">
+          <div class="card">
+            <h3>📝 지금까지 찾은 내 마음</h3>
+            <div class="mini-summary" id="miniSummary"></div>
+            <div class="tip" style="margin-top:12px">정답은 없어요. 지금 내 마음과 가장 가까운 것을 골라요.</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ───────── 친구 마음 읽기 ───────── -->
+    <section id="view-practice" class="hidden">
+      <div class="card" id="practiceCard"></div>
+    </section>
+
+    <!-- ───────── 기록장 ───────── -->
+    <section id="view-diary" class="hidden">
+      <div class="card">
+        <span class="eyebrow">나의 마음 기록장</span>
+        <h2 class="title-font" style="font-size:28px;margin:10px 0 4px" id="diaryTitle">나의 마음 기록장</h2>
+        <p class="muted" style="margin:0">처음 화면에 적은 학급 코드와 별명으로 기록을 찾아요.</p>
+        <div id="diaryBody" style="margin-top:14px"></div>
+      </div>
+    </section>
+
+    <!-- ───────── 선생님 ───────── -->
+    <section id="view-teacher" class="hidden">
+      <div class="card" id="teacherLock">
+        <span class="eyebrow">선생님 화면</span>
+        <h2 class="title-font" style="font-size:28px;margin:10px 0 4px">우리 반 마음 날씨 보기</h2>
+        <p class="muted" style="margin:0 0 14px">학급 코드와 선생님 비밀번호를 입력하세요.</p>
+        <div class="row" style="align-items:flex-end">
+          <div style="flex:1;min-width:150px"><label class="field" for="tClass">학급 코드</label><input id="tClass" class="input" maxlength="20" placeholder="예: 3-2반"></div>
+          <div style="flex:1;min-width:150px"><label class="field" for="tPin">비밀번호</label><input id="tPin" class="input" type="password" maxlength="20"></div>
+          <div style="flex:1;min-width:150px"><label class="field" for="tDate">날짜</label><input id="tDate" class="input" type="date"></div>
+          <button class="btn" id="tOpen">보기</button>
+        </div>
+        <p id="tMsg" class="muted" style="font-size:13.5px"></p>
+      </div>
+      <div id="teacherBody"></div>
+    </section>
+  </main>
+
+  <footer>마음 날씨 루틴 · 교육용 AI 프로그래밍 과제 · 감정에는 옳고 그름이 없어요 🌈</footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
