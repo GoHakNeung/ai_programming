@@ -17,7 +17,7 @@ const EMOTIONS = {
   calm:  { name: "평온",     wx: "🍃", face: "😌", weather: "산들바람", color: "var(--calm)",  neg: false,
            words: ["차분한", "느긋한", "안심되는", "홀가분한", "편안한", "만족스러운"] },
   tired: { name: "피곤",     wx: "☁️", face: "😪", weather: "흐림",     color: "var(--tired)", neg: true,
-           words: ["지친", "나른한", "지루한", "멍한", "무기력한", "졸린"] },
+           words: ["지친", "나른한", "지루한", "멍한", "기운 없는", "졸린"] },
 };
 
 const BODY = [
