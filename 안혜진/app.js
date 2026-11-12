@@ -563,6 +563,16 @@ function markDid() {
   R.did = true;
   const n = $("#rNext"); n.disabled = false; n.textContent = "다음 →";
   renderMini();
+  // 활동 상자 바로 아래에 '다음 단계로' 버튼을 보여 줘서, 화면 맨 아래 버튼을 못 찾는 일이 없게 함
+  const box = $("#activity .activity");
+  if (box && !box.querySelector(".act-done")) {
+    const d = document.createElement("div");
+    d.className = "act-done";
+    d.innerHTML = `<p>✅ 활동을 마쳤어요! 정말 잘했어요.</p><button class="btn green" type="button">다음 단계로 →</button>`;
+    d.querySelector("button").onclick = () => $("#rNext").click();
+    box.appendChild(d);
+    d.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 }
 
 function renderActivity() {
